@@ -1,0 +1,6 @@
+[deps]
+Loess = "4345ca2d-374a-55d4-8d30-97f9976e7612"
+PIDSmoothing = "f1efdae0-c1e0-42d8-8ab3-95746ee5cff3"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+SavitzkyGolay = "c4bf5708-b6a6-4fbe-bcd0-6850ed671584"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
