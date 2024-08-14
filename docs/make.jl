@@ -24,4 +24,5 @@ makedocs(
         ],
        
     )
-    format = Documenter.HTML()
+format = Documenter.HTML()
+

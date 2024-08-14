@@ -1,0 +1,7 @@
+Manifest.toml
+
+examples/Manifest.toml
+
+docs/build/*
+
+examples/*.csv
