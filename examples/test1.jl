@@ -454,7 +454,7 @@ begin
     integral_length=10
     adaptive_rate=0.01
     n_setpoint=10
-    decay=0.1
+    decay=0.2
     PIDSmoothed=pid_smoothing(y ,n_setpoint=n_setpoint, 
                 ki=ki, kp=kp, kd=kd, decay=decay,
                 adaptive_rate=adaptive_rate, integral_limit=integral_limit, 
@@ -526,16 +526,60 @@ begin
                 neighbors_before=true, neighbors_after=true)
     start=1
     finish=2000
-    plot(PIDSmoothed[start:finish], lw=2, alpha=0.8, label="PID")
+    plot(PIDSmoothed[start:finish], lw=1, alpha=1.0, label="PID")
 
     xs=Float64.(range(1, length(y), length(y)))
     model=loess(xs, Float64.(y), span=0.05)
     us = range(extrema(xs)...; step = 1)
-    vs = predict(model, us)
-    plot!(vs[start:finish], lw=1, label="Loess", alpha=0.5)
+    vs = predict(model, us) ### vs is the smoothed data using Loess
+    #plot!(vs[start:finish], lw=1, label="Loess", alpha=0.5)
     
-    plot!(y[start:finish], label="noisy_signal", alpha=0.3)
-    
+    plot!(y[start:finish], label="noisy_signal", alpha=0.2)       
 
+end
+
+##### test median fiter ##########################
+begin
+    ##### an example for using PID with limited number of integrals ######################################################################
+    using PIDSmoothing
+    using Plots
+    using Random
+    using Statistics
+    function med(data::Vector{T}, neighbors::Int) where T<:AbstractFloat
+        #dims=1
+        len=length(data)
+        smoothed=zeros(T, len)
+        for i in eachindex(data)
+            smoothed[i]=Statistics.median(data[max(1,i-neighbors):min(len, i+neighbors)])
+        end
+        return smoothed
+    end
+
+    Random.seed!(0)
+    x = range(0, stop=20, length=200)
+    y = sin.(x) .+ randn(length(x)) .* 0.1
+    #y=Float32.([(rand(10)*5).+20; rand(100).*2; (rand(50).*5).-50; rand(70).-10; (rand(25).*5).-40; rand(20).*5])
+    kp = 0.1
+    ki = 0.01
+    kd = 0.01
+    integral_limit = 2.0
+    integral_length = 10
+    adaptive_rate=0.01
+    n_setpoint=5
+    decay=0.2
+    filtered = pid_smoothing(y, n_setpoint=n_setpoint,  ki=ki, kp=kp, kd=kd,
+                    adaptive_rate=adaptive_rate, integral_limit=integral_limit, 
+                    integral_length=integral_length, decay=decay,
+                    neighbors_before=true, neighbors_after=true)
+    plot(filtered, lw=1, label="PID")
+    
+    filtered2= pid_smoothing(med(y, n_setpoint), n_setpoint=0,  ki=ki, kp=kp, kd=kd,
+    adaptive_rate=adaptive_rate, integral_limit=integral_limit, 
+    integral_length=integral_length, decay=decay,
+    neighbors_before=true, neighbors_after=true)
+    plot!(filtered2, label="PID+Median", lw=2)
+    #, 0.1, 0.01, 0.01, 10
+    plot!(med(y,5), lw=1, alpha=1.0, label="Median")
+    plot!(y, alpha=0.4, label=false)
 end
 
