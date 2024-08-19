@@ -25,4 +25,4 @@ jobs:
       - name: Upload coverage results
         uses: codecov/codecov-action@v2
         with:
-          file: lcov.info
+          fail_ci_if_error: true
