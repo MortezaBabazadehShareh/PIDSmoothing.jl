@@ -1,4 +1,3 @@
-[package]
 name = "PIDSmoothing"
 uuid = "f1efdae0-c1e0-42d8-8ab3-95746ee5cff3"
 authors = ["babazadehmorteza"]
