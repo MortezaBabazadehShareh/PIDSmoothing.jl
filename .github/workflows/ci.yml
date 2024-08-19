@@ -5,6 +5,8 @@ on:
     branches:
       - main
   pull_request:
+    branches:
+      - main
 
 jobs:
   test:
@@ -12,14 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Set up Julia
-        uses: julia-actions/setup-julia@latest
+        uses: julia-actions/setup-julia@v1
         with:
-          version: '1.10.3'
+          version: '1.10.3' 
       - name: Install dependencies
-        run: julia -e 'using Pkg; Pkg.instantiate()'
-      - name: Run tests with coverage
-        run: julia -e 'using Pkg; Pkg.test(coverage=true)'
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        run: julia --project -e 'using Pkg; Pkg.instantiate()'
+      - name: Run tests
+        run: julia --project -e 'using Pkg; Pkg.test(coverage=true)'
+
+      - name: Upload coverage results
+        uses: codecov/codecov-action@v2
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          file: lcov.info
