@@ -23,6 +23,7 @@ jobs:
         run: julia --project -e 'using Pkg; Pkg.test(coverage=true)'
 
       - name: Upload coverage results
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v2.1.0
         with:
           fail_ci_if_error: true
+          verbose: true
