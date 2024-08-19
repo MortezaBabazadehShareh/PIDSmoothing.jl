@@ -5,7 +5,7 @@ using PIDSmoothing
 using Coverage
 
 # Generate coverage information
-coverage = Coverage.process_folder("src")
+coverage = Coverage.process_folder("../src")
 
 # Test for NumberLimitPID constructor
 @testset "NumberLimitPID Tests" begin
