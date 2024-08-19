@@ -2,6 +2,10 @@
 
 using Test
 using PIDSmoothing
+using Coverage
+
+# Generate coverage information
+coverage = Coverage.process_folder()
 
 # Test for NumberLimitPID constructor
 @testset "NumberLimitPID Tests" begin
@@ -69,3 +73,7 @@ end
     smoothed_value = realtime_pid_smoothing(pid, new_data_points, previous_smoothed_value)
     @test typeof(smoothed_value) <: AbstractFloat
 end
+
+
+# Write coverage data to lcov.info
+LCOV.writefile("lcov.info", coverage)
