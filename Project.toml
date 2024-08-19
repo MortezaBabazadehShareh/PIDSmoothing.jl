@@ -1,7 +1,7 @@
 [package]
 name = "PIDSmoothing"
 uuid = "f1efdae0-c1e0-42d8-8ab3-95746ee5cff3"
-authors = ["babazadehmorteza "]
+authors = ["babazadehmorteza"]
 version = "0.1.0"
 
 [deps]
