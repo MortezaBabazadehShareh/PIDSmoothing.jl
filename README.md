@@ -114,7 +114,8 @@
     Random.seed!(850)
 
     # Function to generate a synthetic stock price signal
-    function generate_stock_price_signal(N::Int; init_price::Float64 = 100.0, volatility::Float64 = 0.02, trend::Float64 = 0.001)
+    function generate_stock_price_signal(N::Int; init_price::Float64 = 100.0,
+                                         volatility::Float64 = 0.02, trend::Float64 = 0.001)
         prices = Vector{Float64}(undef, N)
         prices[1] = init_price
         
