@@ -16,13 +16,14 @@ begin
     integral_length = 10
     adaptive_rate=0.01
     decay=0.2
-    filtered = pid_smoothing(y, n_setpoint=2,  ki=ki, kp=kp, kd=kd,
+    n_setpoint=5
+    filtered = pid_smoothing(y, n_setpoint=n_setpoint,  ki=ki, kp=kp, kd=kd,
                     adaptive_rate=adaptive_rate, integral_limit=integral_limit, 
                     integral_length=integral_length, decay=decay,
                     neighbors_before=true, neighbors_after=true)
-    plot(filtered, lw=2) #, 0.1, 0.01, 0.01, 10
+    plot(filtered, lw=2, label="Smoothed") #, 0.1, 0.01, 0.01, 10
     #plot!(setpoints)
-    plot!(y)
+    plot!(y, label="Noisy", alpha=0.8)
 end
 
 begin
