@@ -518,7 +518,7 @@ begin
     integral_limit =2.0
     integral_length=10
     adaptive_rate=0.001
-    n_setpoint=10
+    n_setpoint=20
     decay=0.2
     PIDSmoothed=pid_smoothing(y ,n_setpoint=n_setpoint, 
                 ki=ki, kp=kp, kd=kd, decay=decay,
@@ -527,7 +527,7 @@ begin
                 neighbors_before=true, neighbors_after=true)
     start=1
     finish=2000
-    plot(PIDSmoothed[start:finish], lw=1, alpha=1.0, label="PID")
+    plot(PIDSmoothed[start:finish], lw=2, alpha=1.0, label="Smoothed")
 
     xs=Float64.(range(1, length(y), length(y)))
     model=loess(xs, Float64.(y), span=0.05)
@@ -535,7 +535,7 @@ begin
     vs = predict(model, us) ### vs is the smoothed data using Loess
     #plot!(vs[start:finish], lw=1, label="Loess", alpha=0.5)
     
-    plot!(y[start:finish], label="noisy_signal", alpha=0.2)       
+    plot!(y[start:finish], label="noisy_signal", alpha=0.4)       
 
 end
 
