@@ -300,7 +300,7 @@ begin
     plot(pid_smoothing(y,  n_setpoint=n_setpoint, ki=ki, kp=kp, kd=kd,
          adaptive_rate=adaptive_rate, integral_limit=integral_limit, 
          integral_length=integral_length, decay=decay,
-         neighbors_before=true, neighbors_after=true), label="PID",
+         neighbors_before=true, neighbors_after=true), label="Smoothed",
          alpha=0.8, lw=3) #
    
     xs=Float64.(range(1, length(y), length(y)))
@@ -313,7 +313,7 @@ begin
     sg_smoothed=sg.y
     plot!(sg_smoothed, alpha=0.5, label="SavitzkyGolay", lw=2)
 
-    plot!(noisy_step_signal, alpha=0.2)
+    plot!(noisy_step_signal, alpha=0.3, label="Noisy data")
 end
 
 #############################################################################################################################################
