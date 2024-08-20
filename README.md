@@ -7,7 +7,7 @@
 ## Quick Demonstration
 
 ```julia
-##### an example for using PID with limited number of integrals ##################################
+##### an example for using PID with limited number of integrals #############################
     using PIDSmoothing
     using Plots
     using Random
@@ -35,7 +35,7 @@
 ```
 ![](PIDSmoothing1.png)
 ```julia
-#### an example of batch smoothing with limited number of integrals ##############################
+#### an example of batch smoothing with limited number of integrals ###########################
     using PIDSmoothing
     using Plots
     using Random
@@ -49,7 +49,7 @@
     y=[[y1];[y2]]
     plot(batch_pid_smoothing([Float32.(vec) for vec in y], n_setpoint=5, decay=0.2,
                                            integral_length=10, integral_limit=2.0, adaptive_rate=0.001,
-                                           neighbors_before=false, neighbors_after=true), lw=2) #, 0.1, 0.01, 0.01, 10
+                                           neighbors_before=false, neighbors_after=true), lw=2)
     plot!(y)
 ```
 ![](PIDSmoothing2.png)
