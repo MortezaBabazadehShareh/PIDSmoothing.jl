@@ -136,7 +136,8 @@
     trend = 0.001  # Overall trend
 
     # Generate the signal
-    stock_price_signal = generate_stock_price_signal(N; init_price=init_price, volatility=volatility, trend=trend)
+    stock_price_signal = generate_stock_price_signal(N; init_price=init_price,
+                                                     volatility=volatility, trend=trend)
 
     y=stock_price_signal
     kp = 0.1
