@@ -7,7 +7,7 @@
 ## Quick Demonstration
 
 ```julia
-##### an example for using PID with limited number of integrals ######################################################################
+##### an example for using PID with limited number of integrals ##################################
     using PIDSmoothing
     using Plots
     using Random
