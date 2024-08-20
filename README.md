@@ -15,7 +15,7 @@
     Random.seed!(0)
     x = range(0, stop=20, length=200)
     y = sin.(x) .+ randn(length(x)) .* 0.1
-    #y=Float32.([(rand(10)*5).+20; rand(100).*2; (rand(50).*5).-50; rand(70).-10; (rand(25).*5).-40; rand(20).*5])
+
     kp = 0.1
     ki = 0.01
     kd = 0.01
@@ -24,14 +24,15 @@
     adaptive_rate=0.01
     decay=0.2
     n_setpoint=5
+
     filtered = pid_smoothing(y, n_setpoint=n_setpoint,  ki=ki, kp=kp, kd=kd,
                     adaptive_rate=adaptive_rate, integral_limit=integral_limit, 
                     integral_length=integral_length, decay=decay,
                     neighbors_before=true, neighbors_after=true)
-    plot(filtered, lw=2, label="Smoothed") #, 0.1, 0.01, 0.01, 10
-    #plot!(setpoints)
+
+    plot(filtered, lw=2, label="Smoothed")   
     plot!(y, label="Noisy", alpha=0.8)
 ```
-![](PIDSmoothing.png)
+![](PIDSmoothing1.png)
 
 
