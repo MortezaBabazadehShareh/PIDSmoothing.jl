@@ -324,7 +324,7 @@ begin
     using Random
     using Loess
     using SavitzkyGolay
-    Random.seed!(10)
+    Random.seed!(25)
     # Define the time vector
     t = 0:0.1:200
 
@@ -345,29 +345,29 @@ begin
     y=linear_signal
     kp = 0.1
     ki = 0.01
-    kd = 0.01
+    kd = 0.005
     integral_limit =1.0
     integral_length=10
     adaptive_rate=0.0001
-    n_setpoint=25
-    decay=0.3
+    n_setpoint=30
+    decay=0.1
     plot(PIDSmoothing.pid_smoothing(y,  n_setpoint=n_setpoint, ki=ki, kp=kp, kd=kd,
         adaptive_rate=adaptive_rate, integral_limit=integral_limit, 
         integral_length=integral_length, decay=decay,
-        neighbors_before=true, neighbors_after=true), label="PID",
-        alpha=0.8, lw=3) #
+        neighbors_before=true, neighbors_after=true), label="Smoothed",
+        alpha=1.0, lw=3) #
 
     xs=Float64.(range(1, length(y), length(y)))
     model=loess(xs, Float64.(y), span=0.1)
     us = range(extrema(xs)...; step = 1)
     vs = predict(model, us)
-    plot!(vs, lw=2, label="Loess", alpha=0.5)
+    #plot(vs, lw=2, label="Loess", alpha=0.5)
 
     sg = savitzky_golay(y, 81, 4)
     sg_smoothed=sg.y
-    plot!(sg_smoothed, alpha=0.5, label="SavitzkyGolay", lw=2)
+    #plot!(sg_smoothed, alpha=0.5, label="SavitzkyGolay", lw=2)
 
-    plot!(linear_signal, label="Piecewise Linear with Peaks", alpha=0.2)
+    plot!(linear_signal, label="Piecewise Linear with Peaks", alpha=0.4)
         
 end
 
