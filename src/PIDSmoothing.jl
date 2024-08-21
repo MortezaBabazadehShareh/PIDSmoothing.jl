@@ -206,7 +206,13 @@ module PIDSmoothing
     =#
     ### Calculating the new setpoint value
     function get_adaptive_mean_filter!(data::TA, neighbors::Int=DEFAULT_SETPOINT_NEIGHBORS; neighbors_before::Bool=true, neighbors_after::Bool=true) where TA <: AbstractArray
-
+        
+        ### setting the maximum number of neighbors
+        if neighbors_after && neighbors_before && neighbors >= (length(data)/2)
+            neighbors=ceil(length(data)/2)-1
+        elseif neighbors >= length(data)
+            neighbors=length(data)-1
+        end  
         mysum = zero(eltype(data))
         # elements in the buffer
         count = 0 ## number of added-up elements so far
