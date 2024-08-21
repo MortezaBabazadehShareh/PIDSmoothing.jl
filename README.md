@@ -7,7 +7,7 @@
 ## Quick Demonstration
 
 ```julia
-##### an example for using PID with limited number of integrals ##################################
+##### an example for using PID with limited number of integrals #############################
     using PIDSmoothing
     using Plots
     using Random
@@ -35,7 +35,7 @@
 ```
 ![](PIDSmoothing1.png)
 ```julia
-#### an example of batch smoothing with limited number of integrals ##############################
+#### an example of batch smoothing with limited number of integrals ###########################
     using PIDSmoothing
     using Plots
     using Random
@@ -48,14 +48,14 @@
  
     y=[[y1];[y2]]
     plot(batch_pid_smoothing([Float32.(vec) for vec in y], n_setpoint=5, decay=0.2,
-                                           integral_length=10, integral_limit=2.0, adaptive_rate=0.001,
-                                           neighbors_before=false, neighbors_after=true), lw=2) #, 0.1, 0.01, 0.01, 10
+                             integral_length=10, integral_limit=2.0, adaptive_rate=0.001,
+                             neighbors_before=false, neighbors_after=true), lw=2)
     plot!(y)
 ```
 ![](PIDSmoothing2.png)
 
 ```julia
-####################################### example 4 (step signal) ##############################
+####################################### step signal example  ##############################
     using PIDSmoothing
     using Plots
     using Random
@@ -106,3 +106,62 @@
     plot!(noisy_step_signal, alpha=0.3, label="Noisy data)
 ```
 ![](PIDSmoothing3.png)
+```julia
+####################################### example of synthetic stock price signal ###################
+    using Plots
+    using PIDSmoothing
+    using Random
+    Random.seed!(850)
+
+    # Function to generate a synthetic stock price signal
+    function generate_stock_price_signal(N::Int; init_price::Float64 = 100.0,
+                                         volatility::Float64 = 0.02, trend::Float64 = 0.001)
+        prices = Vector{Float64}(undef, N)
+        prices[1] = init_price
+        
+        for i in 2:N
+            # Random noise simulating daily price fluctuation
+            noise = volatility * randn()
+            # Trend component (upwards or downwards)
+            prices[i] = prices[i-1] * (1.0 + trend + noise)
+        end
+        
+        return prices
+    end
+
+    # Parameters for the signal
+    N = 2000  # Length of the signal
+    init_price = 100.0  # Initial stock price
+    volatility = 0.025  # Volatility factor
+    trend = 0.001  # Overall trend
+
+    # Generate the signal
+    stock_price_signal = generate_stock_price_signal(N; init_price=init_price,
+                                                     volatility=volatility, trend=trend)
+
+    y=stock_price_signal
+    kp = 0.1
+    ki = 0.01
+    kd = 0.01
+    integral_limit =2.0
+    integral_length=10
+    adaptive_rate=0.001
+    n_setpoint=20
+    decay=0.2
+
+    PIDSmoothed=pid_smoothing(y ,n_setpoint=n_setpoint, 
+                ki=ki, kp=kp, kd=kd, decay=decay,
+                adaptive_rate=adaptive_rate, integral_limit=integral_limit, 
+                integral_length=integral_length,
+                neighbors_before=true, neighbors_after=true)
+
+    start=1
+    finish=2000
+    plot(PIDSmoothed[start:finish], lw=2, alpha=1.0, label="Smoothed")
+    
+    plot!(y[start:finish], label="noisy_signal", alpha=0.4)       
+
+end
+```
+![](PIDSmoothing4.png)
+
