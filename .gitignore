@@ -5,5 +5,3 @@ examples/Manifest.toml
 docs/build/*
 
 examples/*.csv
-
-src/PIDSmoothing.jl.15496.conv
