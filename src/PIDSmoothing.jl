@@ -1,6 +1,9 @@
 module PIDSmoothing
 
     using Statistics
+    using Polynomials
+    #using LinearAlgebra
+    #using SparseArrays
 
     const DEFAULT_KP = 0.1
     const DEFAULT_KI = 0.01
@@ -74,22 +77,30 @@ module PIDSmoothing
         pid.integral_buffer_index+=1                
     end
 
+    # Define the update rule based on error magnitude and direction
+    function update_adaptive_gains!(pid::Union{NumberLimitPID{T}, ValueLimitPID{T}}, error::T, integral::T, derivative::T) where T<:AbstractFloat
+        # Increase gains if error is growing
+        if abs(error) > abs(pid.prev_error)
+            pid.kp += pid.adapt_rate * 1.0 * abs(abs(error)-abs(pid.prev_error))
+            pid.ki += pid.adapt_rate * 0.5 * abs(abs(error)-abs(pid.prev_error))#* abs(integral)
+            pid.kd += pid.adapt_rate * 0.1 * abs(abs(error)-abs(pid.prev_error)) #  * abs(derivative)
+        else  # Decrease gains if error is reducing
+            pid.kp -= pid.adapt_rate * 1.0 * abs(abs(error)-abs(pid.prev_error)) 
+            pid.ki -= pid.adapt_rate * 0.5 * abs(abs(error)-abs(pid.prev_error)) 
+            pid.kd -= pid.adapt_rate * 0.1 * abs(abs(error)-abs(pid.prev_error)) 
+        end
+        
+        # Ensure values remain within limits
+        pid.kp = clamp(pid.kp, 0.01, 0.5)
+        pid.ki = clamp(pid.ki, 0.001, 0.5)
+        pid.kd = clamp(pid.kd, 0.0001, 0.5)
+    end
+
     # Update method for the PID controller with adaptive rate and fixed-size integral buffer
     function update!(pid::NumberLimitPID{T}, current_value::T, setpoint::T; decay::T = DEFAULT_DECAY_COEFFICIENT)::T where T<:AbstractFloat
         totaldecay = (1-decay)^pid.integral_length
         error::T = setpoint - current_value
-        #pid.integral += error
-
-        # Update the integral buffer
-        #=    
-        pid.integral_sum+=error
-        i=((pid.integral_buffer_index-1)%pid.integral_length)+1
-        if pid.integral_buffer_index>pid.integral_length
-            pid.integral_sum-=pid.integral_buffer[i]
-        end
-        pid.integral_buffer[i]=error
-        pid.integral_buffer_index+=1
-        =#    
+       
         update_integral_sum!(pid, error; totaldecay = totaldecay)
         # Apply anti-windup by clamping the integral term
         # pid.integral_sum=clamp(pid.integral_sum, -pid.integral_limit, pid.integral_limit)
@@ -99,11 +110,15 @@ module PIDSmoothing
         derivative::T = error - pid.prev_error
         output::T = pid.kp * error + pid.ki * myintegral + pid.kd * derivative
 
+        
+        # Apply the adaptive gain update strategy
+        update_adaptive_gains!(pid, error, myintegral, derivative)
+       
         # Adaptive tuning logic
-        pid.kp += pid.adapt_rate * error * error
-        pid.ki += pid.adapt_rate * error * myintegral
-        pid.kd += pid.adapt_rate * error * derivative
-
+        #pid.kp += pid.adapt_rate * error  *  error
+        #pid.ki += pid.adapt_rate * error  * myintegral
+        #pid.kd += pid.adapt_rate * error)  *  derivative
+       
         pid.prev_error = error
         return output
     end
@@ -122,9 +137,11 @@ module PIDSmoothing
         output::T = pid.kp * error + pid.ki * pid.integral + pid.kd * derivative
 
         # Adaptive tuning logic
-        pid.kp += pid.adapt_rate * error * error
-        pid.ki += pid.adapt_rate * error * pid.integral
-        pid.kd += pid.adapt_rate * error * derivative
+        #pid.kp += pid.adapt_rate * error * error
+        #pid.ki += pid.adapt_rate * error * pid.integral
+        #pid.kd += pid.adapt_rate * error * derivative
+
+        update_adaptive_gains!(pid, error, pid.integral, derivative)
 
         pid.prev_error = error
         return output
@@ -204,7 +221,7 @@ module PIDSmoothing
         return update!
     end
     =#
-    ### Calculating the new setpoint value
+    ### Calculating the new setpoint value based on average
     function get_adaptive_mean_filter!(data::TA, neighbors::Int=DEFAULT_SETPOINT_NEIGHBORS; neighbors_before::Bool=true, neighbors_after::Bool=true) where TA <: AbstractArray
         
         ### setting the maximum number of neighbors
@@ -261,7 +278,106 @@ module PIDSmoothing
         return update!
     end
 
+    #### set point calculation based on the weighted Polynomials fitting
+    
+    function get_adaptive_fit_filter_new!(smoothed_data::TA, data::TA, neighbors::Int=DEFAULT_SETPOINT_NEIGHBORS; 
+                                    neighbors_before::Bool=true, neighbors_after::Bool=true) where TA <: AbstractArray
 
+        if neighbors_after && neighbors_before && neighbors >= (length(data)/2)
+            neighbors = convert(Int64, ceil(length(data)/2)-1)
+        elseif neighbors >= length(data)
+            neighbors = convert(Int64, length(data)-1)
+        end
+
+        degree = 3
+        index = 1
+        function new_set!()
+            index += 1
+            if !neighbors_before && !neighbors_after
+                return data[index]
+            end
+
+            # Define the range of points to consider for fitting
+            start = max(1, index - neighbors * neighbors_before)
+            finish = min(length(data), index + neighbors * neighbors_after)
+
+             # Ensure there are enough points for polynomial fitting
+            if finish - start + 1 < degree + 1 # make sure we have enough points to fit
+                return data[index]
+            end
+
+            x = Float64.(collect(start:finish))
+            y = Float64.([smoothed_data[start:index-1]..., data[index:finish]...])
+
+            # Compute weights: closer points get higher weights
+            
+            #weights = exp.(-abs.(x .- index))  # Exponential decay based on distance from `index`
+            sigma = neighbors / 4  # `sigma` controls the spread
+            weights = exp.(-((x .- index) .^ 2) / (2 * sigma^2))  # `sigma` controls the spread
+            #weights = max.(0, 1 .- abs.(x .- index) / neighbors )  # `max_distance` is the cutoff
+            # Perform weighted polynomial fitting
+            W = zeros(length(weights), length(weights))
+            for i in eachindex(weights)# 1:length(weights)
+                W[i, i] = weights[i]
+            end
+            #W = Diagonal(weights)  # Weight matrix
+            X = hcat([x .^ i for i in 0:degree-1]...)  # Design matrix for a cubic polynomial
+            coeffs = (X' * W * X) \ (X' * W * y)  # Solve weighted least squares
+
+            # Evaluate the fitted polynomial at `index`
+            fitted_value = sum(coeffs .* (index .^ (0:degree-1)))
+            return convert(eltype(data), fitted_value)
+        end
+        return new_set!
+    end
+    
+    #### set point calculation based on the Polynomials fitting
+    function get_adaptive_fit_filter!(smoothed_data::TA, data::TA, neighbors::Int=DEFAULT_SETPOINT_NEIGHBORS; 
+                                        neighbors_before::Bool=true, neighbors_after::Bool=true) where TA <: AbstractArray
+        index = 1
+        function new_set!()
+            index += 1
+            if !neighbors_before && !neighbors_after
+                return data[index]
+            end
+            if neighbors_before && neighbors_after
+                start = max(1, index - neighbors)
+                finish = min(length(data), index + neighbors)
+                # Convert to Float64 for fitting, then back to the original type
+                line = fit(Float64.(collect(start:finish)), Float64.([smoothed_data[start:index-1]..., data[index:finish]...]), 3)
+                return convert(eltype(data), line(index))
+            end
+            if neighbors_before && !neighbors_after
+                start = max(1, index - neighbors)
+                finish = index
+                line = fit(Float64.(collect(start:finish)), Float64.([smoothed_data[start:index-1]..., data[index:finish]...]), 3)
+                return convert(eltype(data), line(index))
+            end
+            if !neighbors_before && neighbors_after
+                start = index
+                finish = min(length(data), index + neighbors)
+                line = fit(Float64.(collect(start:finish)), Float64.(data[start:finish]), 3)
+                return convert(eltype(data), line(index))                
+            end
+        end
+        return new_set!
+    end
+    
+    #### set point besed on the median filter
+    function get_adaptive_med_filter!(data::TA, neighbors::Int=DEFAULT_SETPOINT_NEIGHBORS; neighbors_before::Bool=true, neighbors_after::Bool=true) where TA <: AbstractArray
+        index = 1
+        function new_set!()
+            index += 1
+            if !neighbors_before || !neighbors_after
+                return data[index]
+            end
+            start = max(1, index - neighbors)
+            finish = min(length(data), index + neighbors)
+            temp = sort(data[start:finish])
+            return temp[index - start + 1]            
+        end
+        return new_set!
+    end
     # PID smoothing function with adaptive rate and fixed-size integral buffer
     """
     Apply PID smoothing 
@@ -311,7 +427,7 @@ module PIDSmoothing
                                     integral_length::Int=DEFAULT_INTEGRAL_LENGTH, n_setpoint::Int=DEFAULT_SETPOINT_NEIGHBORS,
                                     adaptive_rate::AbstractFloat=DEFAULT_ADAPTIVE_RATE, neighbors_before::Bool=DEFAULT_NEIGHBORS_BEFORE,
                                     neighbors_after::Bool=DEFAULT_NEIGHBORS_AFTER, decay::AbstractFloat=DEFAULT_DECAY_COEFFICIENT,
-                                    integral_limit::AbstractFloat=DEFAULT_INTEGRAL_VALUE_LIMIT)::Vector{T} where T<:AbstractFloat
+                                    integral_limit::AbstractFloat=DEFAULT_INTEGRAL_VALUE_LIMIT) where T<:AbstractFloat  #::Vector{T}
 
         kp = convert(T, kp)
         ki = convert(T, ki)
@@ -320,10 +436,15 @@ module PIDSmoothing
         integral_limit = convert(T, integral_limit)
         decay=convert(T, decay)
 
+         # Normalize the data
+        data_min = convert(T, minimum(data))
+        data_max = convert(T, maximum(data))
+        data_range = convert(T, data_max - data_min)
+        normalized_data = convert.(T, (data .- data_min) ./ data_range)
 
         smoothed_data = zeros(T, length(data))
 
-        if integral_length==0
+        if integral_length == 0
             pid = ValueLimitPID(kp, ki, kd, integral_limit, adaptive_rate)
         else
             integral_length=min(integral_length, length(data))
@@ -331,19 +452,38 @@ module PIDSmoothing
         end
       
 
-        smoothed_data[1] = data[1]
+        smoothed_data[1] = normalized_data[1]
+
+        ####  DIFFERENT STRATEGIES FOR CALCULATING THE SET POINT ######
+
+        ### average set point (ACTIVATE THE FOLLOWING TWO LINES)
+        #up=get_adaptive_mean_filter!(normalized_data, n_setpoint, neighbors_before=neighbors_before, neighbors_after=neighbors_after)
+        #up()
+
+        ### polynomial fitting set point
+        #up = get_adaptive_fit_filter!(smoothed_data, normalized_data, n_setpoint, neighbors_before=neighbors_before, neighbors_after=neighbors_after)
+
+        ### weighted polynomial fitting set point
+        up = get_adaptive_fit_filter_new!(smoothed_data, normalized_data, n_setpoint, neighbors_before=neighbors_before, neighbors_after=neighbors_after)
+
+        ### median filter set point
+        #up = get_adaptive_med_filter!(normalized_data, n_setpoint, neighbors_before=neighbors_before, neighbors_after=neighbors_after)
         
-        #up=get_adaptive_mean_filter(data, 2*n_setpoint+1)
-        up=get_adaptive_mean_filter!(data, n_setpoint, neighbors_before=neighbors_before, neighbors_after=neighbors_after )
-        up()
-        all_set = []
+        
+        #all_set = zeros(length(data))
+        #all_set[1] = smoothed_data[1]
         for i in 2:length(data)
             s = up()
-            push!(all_set, s)
+
+            #push!(all_set, s)
+            #all_set[i] = s
             smoothed_data[i] = smoothed_data[i-1] + update!(pid, smoothed_data[i-1], s, decay=decay)
         end
         
-       
+        # Denormalize the smoothed data
+        smoothed_data = smoothed_data .* data_range .+ data_min
+    
+        #print(all_set)
         return smoothed_data#, all_set
     end
   
@@ -419,10 +559,11 @@ module PIDSmoothing
         derivative::T = error - pid.prev_error
         output::T = pid.kp * error + pid.ki * integral_sum + pid.kd * derivative
 
+        update_adaptive_gains!(pid, error, integral_sum, derivative)
         # Adaptive tuning logic
-        pid.kp += pid.adapt_rate * error * error
-        pid.ki += pid.adapt_rate * error * integral_sum
-        pid.kd += pid.adapt_rate * error * derivative
+        #pid.kp += pid.adapt_rate * error * error
+        #pid.ki += pid.adapt_rate * error * integral_sum
+        #pid.kd += pid.adapt_rate * error * derivative
 
         pid.prev_error = error
         return output
@@ -501,7 +642,13 @@ module PIDSmoothing
         adaptive_rate=convert(T, adaptive_rate)
         integral_limit = convert(T, integral_limit)
         decay=convert(T, decay)
-        #weights=convert.(T, weights)                  
+        #weights=convert.(T, weights) 
+        
+        # Normalize the data
+        data_min = convert(T, minimum(data))
+        data_max = convert(T, maximum(data))
+        data_range = convert(T, data_max - data_min)
+        normalized_data = convert.(T, (data .- data_min) ./ data_range)
         
         smoothed_data = zeros(T, length(data))
 
@@ -511,14 +658,15 @@ module PIDSmoothing
         end
         
         pid = NumberLimitPID(kp, ki, kd, integral_length, adaptive_rate, integral_limit)
-        smoothed_data[1] = data[1]  # Initialize the first data point
+        smoothed_data[1] = normalized_data[1]  # Initialize the first data point
 
         #up=get_adaptive_mean_filter(data, 2*n_setpoint+1)
-        up=get_adaptive_mean_filter!(data, n_setpoint, neighbors_before=neighbors_before, 
-                                     neighbors_after=neighbors_after)
-        up()
+        #up=get_adaptive_mean_filter!(data, n_setpoint, neighbors_before=neighbors_before, neighbors_after=neighbors_after)
+        #up()
+        up1 = get_adaptive_fit_filter_new!(smoothed_data, normalized_data, n_setpoint, neighbors_before=neighbors_before, neighbors_after=neighbors_after)
+
         for i in 2:length(data)
-            smoothed_data[i] = smoothed_data[i-1] + weighted_integral_update!(pid, smoothed_data[i-1], up(), weights, decay)
+            smoothed_data[i] = smoothed_data[i-1] + weighted_integral_update!(pid, smoothed_data[i-1], up1(), weights, decay)
         end
              
         #=
@@ -532,6 +680,8 @@ module PIDSmoothing
             smoothed_data[i] = smoothed_data[i-1] + weighted_integral_update!(pid, smoothed_data[i-1], set_point, weights) 
         end
         =#
+         # Denormalize the smoothed data
+        smoothed_data = smoothed_data .* data_range .+ data_min
         return smoothed_data
     end
 
@@ -583,7 +733,11 @@ module PIDSmoothing
         #end
         #pid.integral_limit = convert(T, pid.integral_limit)
         decay=convert(T, decay)
-        setpoint::T=mean(new_data_points)
+        #setpoint::T=mean(new_data_points)
+        start = 1
+        finish = length(new_data_points)
+        line = fit(Float64.(collect(start:finish)), Float64.(new_data_points), 4)
+        setpoint = convert(eltype(new_data_points), line(finish))
         return previous_smoothed_value + update!(pid, previous_smoothed_value, setpoint, decay=decay)
     end      
 
